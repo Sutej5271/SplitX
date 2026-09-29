@@ -17,8 +17,6 @@ async function processRecurringExpenses() {
             try {
                 await client.query("BEGIN");
 
-                // Re-check and lock this recurring expense
-                // to prevent duplicate processing
                 const lockedResult = await client.query(
                     `
                     SELECT *
@@ -37,10 +35,6 @@ async function processRecurringExpenses() {
                 }
 
                 const currentRecurring = lockedResult.rows[0];
-
-                // ---------------------------------------------
-                // 1. Get all members of the group
-                // ---------------------------------------------
                 const membersResult = await client.query(
                     `
                     SELECT user_id
@@ -59,9 +53,6 @@ async function processRecurringExpenses() {
                     );
                 }
 
-                // ---------------------------------------------
-                // 2. Create the normal expense
-                // ---------------------------------------------
                 const expenseResult = await client.query(
                     `
                     INSERT INTO expenses
@@ -80,9 +71,6 @@ async function processRecurringExpenses() {
 
                 const expenseId = expenseResult.rows[0].id;
 
-                // ---------------------------------------------
-                // 3. Calculate equal split
-                // ---------------------------------------------
                 const totalAmount = Number(currentRecurring.amount);
                 const memberCount = members.length;
 
