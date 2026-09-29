@@ -118,6 +118,64 @@ async function calculateBalances(groupId) {
 
 
 // =====================================================
+// GET DASHBOARD OVERALL SUMMARY
+// GET /dashboard/summary
+// =====================================================
+router.get("/dashboard/summary", authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.userId;
+
+        const userGroups = await pool.query(
+            `SELECT group_id FROM group_members WHERE user_id = $1`,
+            [userId]
+        );
+
+        let totalOwed = 0;
+        let totalOwe = 0;
+
+        for (const row of userGroups.rows) {
+            const groupId = row.group_id;
+            const balances = await calculateBalances(groupId);
+            const userBal = balances[userId] || 0;
+
+            if (userBal > 0) {
+                totalOwed += userBal;
+            } else if (userBal < 0) {
+                totalOwe += Math.abs(userBal);
+            }
+        }
+
+        const netBalance = totalOwed - totalOwe;
+
+        res.json({
+            youOwe: Number(totalOwe.toFixed(2)),
+            youAreOwed: Number(totalOwed.toFixed(2)),
+            netBalance: Number(netBalance.toFixed(2)),
+        });
+    } catch (error) {
+        console.error("Dashboard summary calculation error:", error);
+        res.status(500).json({ message: "Failed to calculate dashboard summary" });
+    }
+});
+
+
+// =====================================================
+// GET GROUP BALANCES
+// GET /groups/:groupId/balances
+// =====================================================
+router.get("/groups/:groupId/balances", authenticateToken, async (req, res) => {
+    const { groupId } = req.params;
+    try {
+        const balances = await calculateBalances(groupId);
+        res.json(balances);
+    } catch (error) {
+        console.error("Group balances error:", error);
+        res.status(500).json({ message: "Failed to get group balances" });
+    }
+});
+
+
+// =====================================================
 // GET CURRENT SETTLEMENTS
 // GET /groups/:groupId/settlements
 // =====================================================
