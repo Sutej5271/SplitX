@@ -13,9 +13,12 @@
   "type": "commonjs",
   "dependencies": {
     "bcrypt": "^6.0.0",
+    "cors": "^2.8.6",
     "dotenv": "^18.0.3",
     "express": "^5.2.1",
+    "google-auth-library": "^11.1.0",
     "jsonwebtoken": "^9.0.3",
+    "node-cron": "^4.6.0",
     "pg": "^8.23.0"
   },
   "devDependencies": {
