@@ -287,7 +287,8 @@ app.post("/auth/login", async (req, res) => {
 // GOOGLE AUTHENTICATION
 // ===============================
 const { OAuth2Client } = require("google-auth-library");
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "350746927328-jdgj7g2dcudvehvf9ldn5au38k894r07.apps.googleusercontent.com";
+const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 
 app.post("/auth/google", async (req, res) => {
     try {
@@ -299,7 +300,7 @@ app.post("/auth/google", async (req, res) => {
 
         const ticket = await googleClient.verifyIdToken({
             idToken: credential,
-            audience: process.env.GOOGLE_CLIENT_ID,
+            audience: GOOGLE_CLIENT_ID,
         });
 
         const payload = ticket.getPayload();
