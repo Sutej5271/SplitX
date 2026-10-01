@@ -356,7 +356,7 @@ app.post("/auth/google", async (req, res) => {
     } catch (dbErr) {
         console.error("Database error during Google login:", dbErr);
         return res.status(500).json({
-            message: "Database connection error on server. Please configure backend database environment variables (DB_HOST/DATABASE_URL)."
+            message: "Database connection error on server: " + (dbErr.message || "Please configure backend database environment variables (DB_HOST/DATABASE_URL).")
         });
     }
 });
