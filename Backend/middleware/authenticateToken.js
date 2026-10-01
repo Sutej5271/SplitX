@@ -17,7 +17,9 @@ function authenticateToken(req, res, next) {
         });
     }
 
-    jwt.verify(token, process.env.JWT_SECRET, (error, user) => {
+    const secret = process.env.JWT_SECRET || "splitx_super_secret_key_change_this";
+
+    jwt.verify(token, secret, (error, user) => {
         if (error) {
             return res.status(403).json({
                 message: "Invalid or expired token"
