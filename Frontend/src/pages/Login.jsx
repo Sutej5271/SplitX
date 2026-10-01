@@ -78,7 +78,14 @@ const Login = () => {
             navigate("/dashboard");
         } catch (err) {
             console.error("Google login error:", err);
-            setError(err.response?.data?.message || "Google authentication failed.");
+            const serverError = err.response?.data?.message || err.response?.data?.error;
+            if (serverError) {
+                setError(serverError);
+            } else if (err.code === "ERR_NETWORK" || !err.response) {
+                setError("Cannot connect to backend server. Please verify backend deployment.");
+            } else {
+                setError("Google authentication failed.");
+            }
         } finally {
             setLoading(false);
         }

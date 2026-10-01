@@ -78,7 +78,14 @@ const Register = () => {
             navigate("/dashboard");
         } catch (err) {
             console.error("Google registration error:", err);
-            setError(err.response?.data?.message || "Google Sign-Up failed.");
+            const serverError = err.response?.data?.message || err.response?.data?.error;
+            if (serverError) {
+                setError(serverError);
+            } else if (err.code === "ERR_NETWORK" || !err.response) {
+                setError("Cannot connect to backend server. Please verify backend deployment.");
+            } else {
+                setError("Google Sign-Up failed.");
+            }
         } finally {
             setLoading(false);
         }
