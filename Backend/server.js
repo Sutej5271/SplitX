@@ -291,21 +291,37 @@ const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "350746927328-jdgj7g2dc
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 
 app.post("/auth/google", async (req, res) => {
-    try {
-        const { credential } = req.body;
+    const { credential } = req.body;
 
-        if (!credential) {
-            return res.status(400).json({ message: "Google credential token is required" });
-        }
+    if (!credential) {
+        return res.status(400).json({ message: "Google credential token is required" });
+    }
+
+    let payload;
+    try {
+        const allowedAudiences = [
+            GOOGLE_CLIENT_ID,
+            process.env.GOOGLE_CLIENT_ID,
+            process.env.VITE_GOOGLE_CLIENT_ID,
+            "350746927328-jdgj7g2dcudvehvf9ldn5au38k894r07.apps.googleusercontent.com"
+        ].filter(Boolean);
 
         const ticket = await googleClient.verifyIdToken({
             idToken: credential,
-            audience: GOOGLE_CLIENT_ID,
+            audience: allowedAudiences,
         });
 
-        const payload = ticket.getPayload();
-        const { email, name } = payload;
+        payload = ticket.getPayload();
+    } catch (googleErr) {
+        console.error("Google token verification error:", googleErr);
+        return res.status(400).json({
+            message: "Google token verification failed: " + (googleErr.message || "Invalid token")
+        });
+    }
 
+    const { email, name } = payload;
+
+    try {
         let userRes = await pool.query(
             "SELECT id, name, email FROM users WHERE email = $1",
             [email]
@@ -325,20 +341,23 @@ app.post("/auth/google", async (req, res) => {
             user = newUserRes.rows[0];
         }
 
+        const secret = process.env.JWT_SECRET || "splitx_super_secret_key_change_this";
         const token = jwt.sign(
             { userId: user.id, email: user.email },
-            process.env.JWT_SECRET,
+            secret,
             { expiresIn: "7d" }
         );
 
-        res.json({
+        return res.json({
             message: "Google login successful",
             token,
             user,
         });
-    } catch (error) {
-        console.error("Google login error:", error);
-        res.status(400).json({ message: "Invalid Google authorization" });
+    } catch (dbErr) {
+        console.error("Database error during Google login:", dbErr);
+        return res.status(500).json({
+            message: "Database connection error on server. Please configure backend database environment variables (DB_HOST/DATABASE_URL)."
+        });
     }
 });
 
