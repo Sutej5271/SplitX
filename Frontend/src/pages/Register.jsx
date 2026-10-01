@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { WalletCards } from "lucide-react";
 import { GoogleLogin } from "@react-oauth/google";
 
-import { registerUser } from "../api/authApi";
+import { registerUser, loginUser } from "../api/authApi";
 import api from "../api/api";
 import { useAuth } from "../context/AuthContext";
 
@@ -41,7 +41,20 @@ const Register = () => {
         try {
             setLoading(true);
             await registerUser(formData);
-            navigate("/login");
+
+            // Automatically log in user after registration
+            try {
+                const loginData = await loginUser({
+                    email: formData.email,
+                    password: formData.password,
+                });
+                login(loginData);
+                navigate("/dashboard");
+            } catch (loginErr) {
+                navigate("/login", {
+                    state: { message: "Account created successfully! Please log in." },
+                });
+            }
         } catch (error) {
             console.error(error);
             const message =

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { WalletCards, Eye, EyeOff, ShieldAlert } from "lucide-react";
+import { WalletCards, Eye, EyeOff, ShieldAlert, CheckCircle2 } from "lucide-react";
 import { GoogleLogin } from "@react-oauth/google";
 
 import { loginUser } from "../api/authApi";
@@ -19,6 +19,7 @@ const Login = () => {
 
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState("");
+    const [successMessage, setSuccessMessage] = useState("");
     const [loading, setLoading] = useState(false);
     const [sessionExpired, setSessionExpired] = useState(false);
 
@@ -26,7 +27,10 @@ const Login = () => {
         if (location.search.includes("reason=expired")) {
             setSessionExpired(true);
         }
-    }, [location.search]);
+        if (location.state?.message) {
+            setSuccessMessage(location.state.message);
+        }
+    }, [location.search, location.state]);
 
     const handleChange = (event) => {
         const { name, value } = event.target;
@@ -107,8 +111,15 @@ const Login = () => {
                     <p>Login to manage your groups and expenses.</p>
                 </div>
 
+                {successMessage && !error && (
+                    <div className="error-message" style={{ background: "#f0fdf4", borderColor: "#bbf7d0", color: "#15803d", display: "flex", alignItems: "center", gap: "8px" }}>
+                        <CheckCircle2 size={18} />
+                        <span>{successMessage}</span>
+                    </div>
+                )}
+
                 {sessionExpired && !error && (
-                    <div className="error-message" style={{ background: "#fff7ed", borderColor: "#ffedd5", color: "#c2410c", display: "flex", alignItem: "center", gap: "8px" }}>
+                    <div className="error-message" style={{ background: "#fff7ed", borderColor: "#ffedd5", color: "#c2410c", display: "flex", alignItems: "center", gap: "8px" }}>
                         <ShieldAlert size={18} />
                         <span>Session expired. Please log in again to continue.</span>
                     </div>
