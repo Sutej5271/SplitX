@@ -22,16 +22,100 @@ app.use(
 
 app.use(express.json());
 
+async function initDbTables() {
+    try {
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                email VARCHAR(255) UNIQUE NOT NULL,
+                password VARCHAR(255) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS groups (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                created_by INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS group_members (
+                id SERIAL PRIMARY KEY,
+                group_id INTEGER REFERENCES groups(id) ON DELETE CASCADE,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                CONSTRAINT unique_group_user UNIQUE(group_id, user_id)
+            );
+
+            CREATE TABLE IF NOT EXISTS expenses (
+                id SERIAL PRIMARY KEY,
+                group_id INTEGER REFERENCES groups(id) ON DELETE CASCADE,
+                paid_by INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                description TEXT NOT NULL,
+                amount NUMERIC(10, 2) NOT NULL,
+                date DATE DEFAULT CURRENT_DATE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS settlements (
+                id SERIAL PRIMARY KEY,
+                group_id INTEGER REFERENCES groups(id) ON DELETE CASCADE,
+                paid_by INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                paid_to INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                amount NUMERIC(10, 2) NOT NULL,
+                status VARCHAR(50) DEFAULT 'completed',
+                date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS group_leave_requests (
+                id SERIAL PRIMARY KEY,
+                group_id INTEGER REFERENCES groups(id) ON DELETE CASCADE,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                status VARCHAR(50) DEFAULT 'pending',
+                requested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                processed_at TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS recurring_expenses (
+                id SERIAL PRIMARY KEY,
+                group_id INTEGER REFERENCES groups(id) ON DELETE CASCADE,
+                paid_by INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                description TEXT NOT NULL,
+                amount NUMERIC(10, 2) NOT NULL,
+                frequency VARCHAR(50) NOT NULL,
+                next_due_date DATE NOT NULL,
+                status VARCHAR(50) DEFAULT 'active',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+        console.log("Database tables initialized successfully.");
+    } catch (error) {
+        console.error("Database tables initialization error:", error);
+    }
+}
+
 async function testDatabase() {
     try {
         const result = await pool.query("SELECT 1");
         console.log("Database connected:", result.rows);
+        await initDbTables();
     } catch (error) {
         console.error("Database connection error:", error);
     }
 }
 
 testDatabase();
+
+app.get("/init-db", async (req, res) => {
+    try {
+        await initDbTables();
+        res.json({ message: "Database tables initialized successfully." });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
 
 app.get("/expenses", authenticateToken, async (req, res) => {
     try {
@@ -322,10 +406,24 @@ app.post("/auth/google", async (req, res) => {
     const { email, name } = payload;
 
     try {
-        let userRes = await pool.query(
-            "SELECT id, name, email FROM users WHERE email = $1",
-            [email]
-        );
+        let userRes;
+        try {
+            userRes = await pool.query(
+                "SELECT id, name, email FROM users WHERE email = $1",
+                [email]
+            );
+        } catch (tableErr) {
+            if (tableErr.code === "42P01" || (tableErr.message && tableErr.message.includes("does not exist"))) {
+                console.log("Users table missing. Auto-initializing tables...");
+                await initDbTables();
+                userRes = await pool.query(
+                    "SELECT id, name, email FROM users WHERE email = $1",
+                    [email]
+                );
+            } else {
+                throw tableErr;
+            }
+        }
 
         let user;
         if (userRes.rows.length > 0) {
